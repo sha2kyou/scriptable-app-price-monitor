@@ -12,10 +12,15 @@ const app_monitor = {
     p: "$4.99",
     n: "破碎的像素地牢",
   },
+  1528199331: {
+    p: "$9.99", // 占位价格，脚本会更新
+    n: "崩溃大陆2",
+  },
 };
 
 let apps = [
   "1563121109|us", //破碎的像素地牢
+  "1528199331|us", //崩溃大陆2,
 ]; //app跟踪id
 let reg = "cn"; //默认区域：美国us 中国cn 香港hk
 let app_infos = [];
@@ -102,10 +107,19 @@ async function createWidget(app_infos) {
       const imgWidget = rightStack.addImage(img);
       imgWidget.cornerRadius = 8;
       const imageWidth = 120;
-      imgWidget.imageSize = new Size(
-        imageWidth,
-        img.size.height * (imageWidth / img.size.width)
-      );
+      const maxImageHeight = 140;
+
+      // 根据 imageWidth 计算缩放后的高度
+      let scaledHeight = img.size.height * (imageWidth / img.size.width);
+
+      if (scaledHeight > maxImageHeight) {
+        // 若高度超限，按高度重新计算宽度
+        const scaledWidth = img.size.width * (maxImageHeight / img.size.height);
+        imgWidget.imageSize = new Size(scaledWidth, maxImageHeight);
+      } else {
+        // 正常按 imageWidth 设置
+        imgWidget.imageSize = new Size(imageWidth, scaledHeight);
+      }
     } catch (e) {
       console.log("Error loading image: " + e);
     }
