@@ -53,14 +53,7 @@ async function createWidget(app_infos) {
 
   const mainStack = w.addStack();
   mainStack.layoutHorizontally();
-  mainStack.centerAlignContent();
-
-  // Left stack for text content
-  const leftStack = mainStack.addStack();
-  leftStack.layoutVertically();
-  leftStack.spacing = 5;
-
-  leftStack.addSpacer(); // Add spacer to push content down
+  
 
   //打折排到最前
   app_infos.sort((a, b) => {
@@ -84,19 +77,14 @@ async function createWidget(app_infos) {
     selectedApp.content = `> ${selectedApp.content}`;
   }
 
-  for (const element of app_infos) {
-    addTextToListWidget(element, leftStack);
-  }
-
-  leftStack.addSpacer();
-
-  // If an app was selected, add its image to the right
+  // If an app was selected, add its image to the left
   if (selectedApp) {
-    mainStack.addSpacer();
-
-    const rightStack = mainStack.addStack();
-    rightStack.layoutVertically();
-    rightStack.addSpacer(5);
+    const imageStack = mainStack.addStack(); // Renamed from rightStack
+    imageStack.layoutVertically();
+    imageStack.addSpacer(5);
+    const imageWidth = 90;
+    const maxImageHeight = 140;
+    imageStack.size = new Size(imageWidth, maxImageHeight); // Set fixed size for the image container
 
     try {
       const screenshotUrls = selectedApp.screenshotUrls;
@@ -104,10 +92,8 @@ async function createWidget(app_infos) {
         screenshotUrls[Math.floor(Math.random() * screenshotUrls.length)];
       const imgReq = new Request(randomScreenshotUrl);
       const img = await imgReq.loadImage();
-      const imgWidget = rightStack.addImage(img);
+      const imgWidget = imageStack.addImage(img);
       imgWidget.cornerRadius = 8;
-      const imageWidth = 120;
-      const maxImageHeight = 140;
 
       // 根据 imageWidth 计算缩放后的高度
       let scaledHeight = img.size.height * (imageWidth / img.size.width);
@@ -123,8 +109,21 @@ async function createWidget(app_infos) {
     } catch (e) {
       console.log("Error loading image: " + e);
     }
-    rightStack.addSpacer(5);
+    imageStack.addSpacer(5);
   }
+
+  // Right stack for text content
+  const textStack = mainStack.addStack(); // Renamed from leftStack
+  textStack.layoutVertically();
+  textStack.spacing = 5;
+  textStack.setPadding(15, 0, 0, 0); // Add top padding
+
+  for (const element of app_infos) {
+    addTextToListWidget(element, textStack);
+  }
+
+  textStack.addSpacer();
+  mainStack.addSpacer(); // Add this spacer to push content to the left
 
   w.presentMedium();
   return w;
@@ -133,7 +132,7 @@ async function createWidget(app_infos) {
 function addTextToListWidget(app_info, listWidget) {
   let text = app_info.content;
   const stack = listWidget.addStack();
-  stack.setPadding(2, 15, 2, 15);
+  stack.setPadding(2, 5, 2, 5);
 
   let item = stack.addText(text);
   if (app_info.is_sale) {
