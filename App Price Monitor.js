@@ -4,8 +4,6 @@
 /*
  * Author: evilbutcher 修改自t.me/QuanXApp群友分享
  * Github: https://github.com/evilbutcher
- * 本脚本使用了@Gideon_Senku的Env，Peng-YM的OpenAPI！感谢！
- * 感谢@MuTu88帮忙测试！
  */
 const app_monitor = {
   // p: 监控价格，当真实价格与该价格不相等时进行折扣展示
