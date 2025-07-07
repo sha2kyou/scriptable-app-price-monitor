@@ -7,42 +7,17 @@
  * 本脚本使用了@Gideon_Senku的Env，Peng-YM的OpenAPI！感谢！
  * 感谢@MuTu88帮忙测试！
  */
-const $http = HTTP();
-
 const app_monitor = {
+  // p: 监控价格，当真实价格与该价格不相等时进行折扣展示
+  // n: 别名展示，可选
   1563121109: {
-    //监控价格，当真实价格与该价格不相等时进行折扣展示
     p: "$4.99",
-    //别名展示
     n: "破碎的像素地牢",
   },
-  1635315427: {
-    p: "¥25.00",
-  },
-  6502453075: {
-    p: "$9.99",
-    n: "小丑牌",
-  },
-  1032708262: {
-    p: "$2.99",
-    n: "坠落深井",
-  },
-  6482989598: {
-    p: "¥30.00",
-  },
-  1368013995: {
-    p: "$4.99",
-    n: "骰子地下城"
-  }
 };
 
 let apps = [
   "1563121109|us", //破碎的像素地牢
-  //   "1635315427", //暖雪
-  "6502453075|us", //小丑牌
-  "1368013995|us", //骰子地下城
-  //   "1032708262|us", //坠落深井
-  //   "6482989598", //侠客风云传前传
 ]; //app跟踪id
 let reg = "cn"; //默认区域：美国us 中国cn 香港hk
 let app_infos = [];
@@ -62,22 +37,27 @@ try {
 !(async () => {
   await format_apps(apps);
   log(app_infos);
-  let widget = createWidget(app_infos);
+  let widget = await createWidget(app_infos);
   Script.setWidget(widget);
   Script.complete();
 })().catch((err) => {
   log("运行出现错误\n" + err);
 });
 
-function createWidget(app_infos) {
+async function createWidget(app_infos) {
   const w = new ListWidget();
+  w.setPadding(10, 10, 10, 10);
 
-  const dateFormatter = new DateFormatter()
-  dateFormatter.dateFormat = "HH:mm"
-  const lastUpdateTime = `更新时间: ${dateFormatter.string(new Date())}`;
+  const mainStack = w.addStack();
+  mainStack.layoutHorizontally();
+  mainStack.centerAlignContent();
 
-  addTitleTextToListWidget(lastUpdateTime, w);
-  w.addSpacer(5);
+  // Left stack for text content
+  const leftStack = mainStack.addStack();
+  leftStack.layoutVertically();
+  leftStack.spacing = 5;
+
+  leftStack.addSpacer(); // Add spacer to push content down
 
   //打折排到最前
   app_infos.sort((a, b) => {
@@ -89,11 +69,51 @@ function createWidget(app_infos) {
     return b.is_sale - a.is_sale;
   });
 
-  for (const element of app_infos) {
-    addTextToListWidget(element, w);
+  // Find apps with screenshots and select one randomly
+  const appsWithScreenshots = app_infos.filter(
+    (app) => app.screenshotUrls && app.screenshotUrls.length > 0
+  );
+  let selectedApp = null;
+  if (appsWithScreenshots.length > 0) {
+    selectedApp =
+      appsWithScreenshots[Math.floor(Math.random() * appsWithScreenshots.length)];
+    // Mark the selected app
+    selectedApp.content = `> ${selectedApp.content}`;
   }
 
-  w.addSpacer();
+  for (const element of app_infos) {
+    addTextToListWidget(element, leftStack);
+  }
+
+  leftStack.addSpacer();
+
+  // If an app was selected, add its image to the right
+  if (selectedApp) {
+    mainStack.addSpacer();
+
+    const rightStack = mainStack.addStack();
+    rightStack.layoutVertically();
+    rightStack.addSpacer(5);
+
+    try {
+      const screenshotUrls = selectedApp.screenshotUrls;
+      const randomScreenshotUrl =
+        screenshotUrls[Math.floor(Math.random() * screenshotUrls.length)];
+      const imgReq = new Request(randomScreenshotUrl);
+      const img = await imgReq.loadImage();
+      const imgWidget = rightStack.addImage(img);
+      imgWidget.cornerRadius = 8;
+      const imageWidth = 120;
+      imgWidget.imageSize = new Size(
+        imageWidth,
+        img.size.height * (imageWidth / img.size.width)
+      );
+    } catch (e) {
+      console.log("Error loading image: " + e);
+    }
+    rightStack.addSpacer(5);
+  }
+
   w.presentMedium();
   return w;
 }
@@ -114,7 +134,6 @@ function addTextToListWidget(app_info, listWidget) {
 
 function addTitleTextToListWidget(text, listWidget) {
   const titleStack = listWidget.addStack();
-  titleStack.size = new Size(330, 15);
   let item = titleStack.addText(text);
   try {
     item.applyHeadlineTextStyling();
@@ -161,13 +180,11 @@ async function post_data(d) {
     let infos = {};
     await Promise.all(
       Object.keys(d).map(async (k) => {
-        let config = {
-          url: "https://itunes.apple.com/lookup?id=" + d[k] + "&country=" + k,
-        };
-        await $http
-          .get(config)
-          .then((response) => {
-            let results = JSON.parse(response.body).results;
+        let url = "https://itunes.apple.com/lookup?id=" + d[k] + "&country=" + k;
+        const req = new Request(url);
+        try {
+          const responseBody = await req.loadString();
+          let results = JSON.parse(responseBody).results;
             if (Array.isArray(results) && results.length > 0) {
               results.forEach((x) => {
                 let is_sale = false;
@@ -196,6 +213,7 @@ async function post_data(d) {
                       app_infos.push({
                         content: `${app_name} | ${app_price}(${app_monitor[x.trackId].p
                           })`,
+                        screenshotUrls: x.screenshotUrls,
                         is_sale: true,
                       });
                     }
@@ -204,16 +222,16 @@ async function post_data(d) {
                 if (!is_sale) {
                   app_infos.push({
                     content: `${app_name} | ${app_price}`,
+                    screenshotUrls: x.screenshotUrls,
                     is_sale: false,
                   });
                 }
               });
             }
-            return Promise.resolve();
-          })
-          .catch((e) => {
+        } catch (e) {
             console.log(e);
-          });
+        }
+            
       })
     );
     return app_infos;
@@ -221,6 +239,3 @@ async function post_data(d) {
     console.log(e);
   }
 }
-
-//From Peng-YM's OpenAPI.js
-function ENV() { const e = "undefined" != typeof $task, t = "undefined" != typeof $loon, s = "undefined" != typeof $httpClient && !this.isLoon, o = "function" == typeof require && "undefined" != typeof $jsbox; return { isQX: e, isLoon: t, isSurge: s, isNode: "function" == typeof require && !o, isJSBox: o, isRequest: "undefined" != typeof $request, isScriptable: "undefined" != typeof importModule, } } function HTTP(e, t = {}) { const { isQX: s, isLoon: o, isSurge: i, isScriptable: n, isNode: r } = ENV(); const u = {}; return (["GET", "POST", "PUT", "DELETE", "HEAD", "OPTIONS", "PATCH"].forEach((h) => (u[h.toLowerCase()] = (u) => (function (u, h) { (h = "string" == typeof h ? { url: h } : h).url = e ? e + h.url : h.url; const c = (h = { ...t, ...h }).timeout, l = { onRequest: () => { }, onResponse: (e) => e, onTimeout: () => { }, ...h.events, }; let d, a; if ((l.onRequest(u, h), s)) d = $task.fetch({ method: u, ...h }); else if (o || i || r) d = new Promise((e, t) => { (r ? require("request") : $httpClient)[u.toLowerCase()](h, (s, o, i) => { s ? t(s) : e({ statusCode: o.status || o.statusCode, headers: o.headers, body: i, }) }) }); else if (n) { const e = new Request(h.url); (e.method = u), (e.headers = h.headers), (e.body = h.body), (d = new Promise((t, s) => { e.loadString().then((s) => { t({ statusCode: e.response.statusCode, headers: e.response.headers, body: s, }) }).catch((e) => s(e)) })) } const f = c ? new Promise((e, t) => { a = setTimeout(() => (l.onTimeout(), t(`${u}URL:${h.url}exceeds the timeout ${c}ms`)), c) }) : null; return (f ? Promise.race([f, d]).then((e) => (clearTimeout(a), e)) : d).then((e) => l.onResponse(e)) })(h, u))), u) }
