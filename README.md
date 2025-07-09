@@ -8,5 +8,5 @@ Github: https://github.com/evilbutcher
 
 ## 预览图
 
-<img width="460" alt="1Capture_2025-07-07_19 13 02" src="https://github.com/user-attachments/assets/fee3004b-b691-43be-bb75-748ced953bf1" />
+<img width="460" alt="image" src="https://github.com/user-attachments/assets/94ca556e-ad43-4076-bd36-f5834a903076" />
 
