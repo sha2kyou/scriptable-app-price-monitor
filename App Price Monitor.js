@@ -1,6 +1,6 @@
 // Variables used by Scriptable.
 // These must be at the very top of the file. Do not edit.
-// icon-color: deep-green; icon-glyph: tag;
+// icon-color: teal; icon-glyph: tag;
 /*
  * Author: evilbutcher 修改自t.me/QuanXApp群友分享
  * Github: https://github.com/evilbutcher
@@ -8,19 +8,23 @@
 const app_monitor = {
   // p: 监控价格，当真实价格与该价格不相等时进行折扣展示
   // n: 别名展示，可选
-  1563121109: {
-    p: "$4.99",
-    n: "破碎的像素地牢",
-  },
   1528199331: {
-    p: "$9.99", // 占位价格，脚本会更新
+    p: "$9.99",
     n: "崩溃大陆2",
+  },
+  1514329124: {
+    p: "$2.99",
+    n: "铁锈战争",
+  },
+  554937499: {
+    p: "$0.99",
   },
 };
 
 let apps = [
-  "1563121109|us", //破碎的像素地牢
-  "1528199331|us", //崩溃大陆2,
+  "1528199331|us", //崩溃大陆2
+  "1514329124|us", //铁锈战争
+  "554937499|us", //Earn to die
 ]; //app跟踪id
 let reg = "cn"; //默认区域：美国us 中国cn 香港hk
 let app_infos = [];
@@ -49,7 +53,7 @@ try {
 
 async function createWidget(app_infos) {
   const w = new ListWidget();
-  w.setPadding(10, 10, 10, 10);
+  w.setPadding(0, 10, 0, 10);
 
   const mainStack = w.addStack();
   mainStack.layoutHorizontally();
@@ -59,7 +63,7 @@ async function createWidget(app_infos) {
   app_infos.sort((a, b) => {
     if (a.is_sale === b.is_sale) {
       // 当 is_sale 相同时，按 content 字典序排序
-      return a.content.localeCompare(b.content);
+      return a.name.localeCompare(b.name);
     }
     // is_sale 为 true 的排在前面
     return b.is_sale - a.is_sale;
@@ -74,17 +78,27 @@ async function createWidget(app_infos) {
     selectedApp =
       appsWithScreenshots[Math.floor(Math.random() * appsWithScreenshots.length)];
     // Mark the selected app
-    selectedApp.content = `> ${selectedApp.content}`;
+    selectedApp.name = `> ${selectedApp.name}`;
   }
+  app_infos.forEach(app => {
+    if (app !== selectedApp) {
+      app.content = `${app.content}`;
+    }
+  });
 
   // If an app was selected, add its image to the left
   if (selectedApp) {
-    const imageStack = mainStack.addStack(); // Renamed from rightStack
+    const imageStackGroup = mainStack.addStack();
+    imageStackGroup.layoutHorizontally();
+    imageStackGroup.addSpacer();
+    
+    const imageStack = imageStackGroup.addStack();
     imageStack.layoutVertically();
-    imageStack.addSpacer(5);
-    const imageWidth = 90;
-    const maxImageHeight = 140;
-    imageStack.size = new Size(imageWidth, maxImageHeight); // Set fixed size for the image container
+    imageStack.addSpacer();
+
+    const maxImageWidth = 200;
+    const maxImageHeight = 160;
+    imageStackGroup.size = new Size(maxImageWidth, maxImageHeight); // Set fixed size for the image container
 
     try {
       const screenshotUrls = selectedApp.screenshotUrls;
@@ -94,64 +108,57 @@ async function createWidget(app_infos) {
       const img = await imgReq.loadImage();
       const imgWidget = imageStack.addImage(img);
       imgWidget.cornerRadius = 8;
-
-      // 根据 imageWidth 计算缩放后的高度
-      let scaledHeight = img.size.height * (imageWidth / img.size.width);
+      // 根据 maxImageWidth 计算缩放后的高度
+      let scaledHeight = img.size.height * (maxImageWidth / img.size.width);
 
       if (scaledHeight > maxImageHeight) {
-        // 若高度超限，按高度重新计算宽度
+      // 若高度超限，按高度重新计算宽度
         const scaledWidth = img.size.width * (maxImageHeight / img.size.height);
-        imgWidget.imageSize = new Size(scaledWidth, maxImageHeight);
+        imageStackGroup.imageSize = new Size(scaledWidth, maxImageHeight);
       } else {
-        // 正常按 imageWidth 设置
-        imgWidget.imageSize = new Size(imageWidth, scaledHeight);
+      // 正常按 maxImageWidth 设置
+        imageStackGroup.imageSize = new Size(maxImageWidth, scaledHeight);
       }
     } catch (e) {
       console.log("Error loading image: " + e);
     }
-    imageStack.addSpacer(5);
+    imageStack.addSpacer();
+    imageStackGroup.addSpacer();
   }
 
   // Right stack for text content
-  const textStack = mainStack.addStack(); // Renamed from leftStack
+  const textStack = mainStack.addStack();
+  textStack.size = new Size(120, 160);
   textStack.layoutVertically();
-  textStack.spacing = 5;
-  textStack.setPadding(15, 0, 0, 0); // Add top padding
-
+  textStack.addSpacer()
   for (const element of app_infos) {
     addTextToListWidget(element, textStack);
   }
-
   textStack.addSpacer();
+  
   mainStack.addSpacer(); // Add this spacer to push content to the left
-
   w.presentMedium();
   return w;
 }
 
 function addTextToListWidget(app_info, listWidget) {
-  let text = app_info.content;
-  const stack = listWidget.addStack();
-  stack.setPadding(2, 5, 2, 5);
-
-  let item = stack.addText(text);
+  const nameStack = listWidget.addStack();
+  nameStack.setPadding(1, 10, 1, 10);
+  let name = nameStack.addText(app_info.name);
+  const priceStack = listWidget.addStack();
+  priceStack.setPadding(1, 10, 1, 10);
+  let price = priceStack.addText(app_info.price)
+  
   if (app_info.is_sale) {
-    item.textColor = new Color("006400");
-    item.font = Font.boldSystemFont(12);
+    price.textColor = Color.green();
+    price.font = Font.boldSystemFont(10);
+    name.font = Font.boldSystemFont(12);
   } else {
-    item.font = Font.systemFont(12);
+    price.textColor = Color.gray();
+    price.font = Font.systemFont(10);
+    name.font = Font.systemFont(12);
+    price.stri
   }
-}
-
-function addTitleTextToListWidget(text, listWidget) {
-  const titleStack = listWidget.addStack();
-  let item = titleStack.addText(text);
-  try {
-    item.applyHeadlineTextStyling();
-  } catch (e) {
-    item.font = Font.systemFont(11);
-  }
-  item.textOpacity = 0.7;
 }
 
 async function format_apps(x) {
@@ -222,8 +229,8 @@ async function post_data(d) {
                     if (app_price !== app_monitor[x.trackId].p) {
                       is_sale = true;
                       app_infos.push({
-                        content: `${app_name} | ${app_price}(${app_monitor[x.trackId].p
-                          })`,
+                        name: `${app_name}`,
+                        price: `${app_price}(${app_monitor[x.trackId].p})`,
                         screenshotUrls: x.screenshotUrls,
                         is_sale: true,
                       });
@@ -232,7 +239,8 @@ async function post_data(d) {
                 }
                 if (!is_sale) {
                   app_infos.push({
-                    content: `${app_name} | ${app_price}`,
+                    name: `${app_name}`,
+                    price: `${app_price}`,
                     screenshotUrls: x.screenshotUrls,
                     is_sale: false,
                   });
