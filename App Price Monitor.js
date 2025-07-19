@@ -16,12 +16,12 @@ const app_monitor = {
   // country: 区域代码，可选，默认为 "cn"
   1528199331: {
     country: "us",
-    originalPrice: "$9.99",
+    originalPrice: "$5.99",
     alias: "崩溃大陆2",
   },
   1514329124: {
     country: "us",
-    originalPrice: "$2.99",
+    originalPrice: "$23.99",
     alias: "铁锈战争",
   },
   554937499: {
@@ -76,7 +76,7 @@ async function createWidget(app_infos) {
     selectedApp =
       appsWithScreenshots[Math.floor(Math.random() * appsWithScreenshots.length)];
     // Mark the selected app
-    selectedApp.name = `[x]${selectedApp.name}`;
+    selectedApp.name = `[${selectedApp.name}]`;
   }
   app_infos.forEach(app => {
     if (app !== selectedApp) {
@@ -161,6 +161,22 @@ function addTextToListWidget(app_info, listWidget) {
     price.font = Font.systemFont(priceFontSize);
     name.font = Font.boldSystemFont(nameFontSize);
   }
+
+  // Apply color based on price change status
+  if (app_info.priceChangeStatus === 'decrease') {
+    price.textColor = Color.green();
+    name.textColor = Color.green();
+  } else if (app_info.priceChangeStatus === 'increase') {
+    price.textColor = Color.red();
+    name.textColor = Color.red();
+  }
+}
+
+function parsePrice(priceString) {
+  if (!priceString) return null;
+  // Remove currency symbols, commas, and other non-numeric characters except for the decimal point
+  const numericString = priceString.replace(/[^0-9.]/g, '');
+  return parseFloat(numericString);
 }
 
 async function format_apps() {
@@ -279,6 +295,18 @@ async function post_data(d) {
                       app_name = x.trackName;
                     }
                     let app_price = x.formattedPrice;
+                    let priceChangeStatus = 'no_change';
+
+                    const currentPriceValue = parsePrice(app_price);
+                    const originalPriceValue = parsePrice(app_monitor_data.originalPrice);
+
+                    if (currentPriceValue !== null && originalPriceValue !== null) {
+                      if (currentPriceValue < originalPriceValue) {
+                        priceChangeStatus = 'decrease';
+                      } else if (currentPriceValue > originalPriceValue) {
+                        priceChangeStatus = 'increase';
+                      }
+                    }
 
                     infos[x.trackId] = {
                       alias: app_name,
@@ -296,6 +324,7 @@ async function post_data(d) {
                             price: `${app_price}(${app_monitor[x.trackId].originalPrice})`,
                             screenshotUrls: x.screenshotUrls,
                             is_sale: true,
+                            priceChangeStatus: priceChangeStatus,
                           });
                         }
                       }
@@ -306,6 +335,7 @@ async function post_data(d) {
                         price: `${app_price}`,
                         screenshotUrls: x.screenshotUrls,
                         is_sale: false,
+                        priceChangeStatus: priceChangeStatus,
                       });
                     }
                   });
