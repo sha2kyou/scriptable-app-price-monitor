@@ -16,12 +16,12 @@ const app_monitor = {
   // country: 区域代码，可选，默认为 "cn"
   1528199331: {
     country: "us",
-    originalPrice: "$5.99",
+    originalPrice: "$9.99",
     alias: "崩溃大陆2",
   },
   1514329124: {
     country: "us",
-    originalPrice: "$23.99",
+    originalPrice: "$2.99",
     alias: "铁锈战争",
   },
   554937499: {
