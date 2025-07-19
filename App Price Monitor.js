@@ -5,41 +5,42 @@
  * Author: evilbutcher 修改自t.me/QuanXApp群友分享
  * Github: https://github.com/evilbutcher
  */
+
+const CACHE_DURATION = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
+
+const DEFAULT_COUNTRY_CODE = "cn";
+
 const app_monitor = {
-  // p: 监控价格，当真实价格与该价格不相等时进行折扣展示
-  // n: 别名展示，可选
+  // originalPrice: 监控价格，当真实价格与该价格不相等时进行折扣展示
+  // alias: 别名展示，可选
+  // country: 区域代码，可选，默认为 "cn"
   1528199331: {
-    p: "$9.99",
-    n: "崩溃大陆2",
+    country: "us",
+    originalPrice: "$9.99",
+    alias: "崩溃大陆2",
   },
   1514329124: {
-    p: "$2.99",
-    n: "铁锈战争",
+    country: "us",
+    originalPrice: "$2.99",
+    alias: "铁锈战争",
   },
   554937499: {
-    p: "$0.99",
+    country: "us",
+    originalPrice: "$0.99",
   },
   935216956: {
-    p: "$4.99",
+    country: "us",
+    originalPrice: "$4.99",
   },
   6746273626: {
-    n: "Dory",
-    p: "¥28.00"
+    alias: "Dory",
+    originalPrice: "¥28.00"
   }
 };
-
-let apps = [
-  "1528199331", //崩溃大陆2
-  "1514329124", //铁锈战争
-  "935216956", //Papers, Please
-//   "554937499", //Earn to die
-  "6746273626|cn", //Dory
-]; //app跟踪id
-let reg = "us"; //默认区域：美国us 中国cn 香港hk
 let app_infos = [];
 
 !(async () => {
-  await format_apps(apps);
+  await format_apps();
   
   let widget = await createWidget(app_infos);
   Script.setWidget(widget);
@@ -162,33 +163,22 @@ function addTextToListWidget(app_info, listWidget) {
   }
 }
 
-async function format_apps(x) {
+async function format_apps() {
   let apps_f = {};
-  x.forEach((n) => {
-    if (/^[a-zA-Z0-9:/|\-_\s]{1,}$/.test(n)) {
-      n = n.replace(/[/|\-_\s]/g, ":");
-      let n_n = n.split(":");
-      if (n_n.length === 1) {
-        if (apps_f.hasOwnProperty(reg)) {
-          apps_f[reg].push(n_n);
-        } else {
-          apps_f[reg] = [];
-          apps_f[reg].push(n_n[0]);
+  for (const appId in app_monitor) {
+    if (app_monitor.hasOwnProperty(appId)) {
+      const appInfo = app_monitor[appId];
+      const countryCode = appInfo.country || DEFAULT_COUNTRY_CODE;
+      if (countryCode) {
+        if (!apps_f[countryCode]) {
+          apps_f[countryCode] = [];
         }
-      } else if (n_n.length === 2) {
-        if (apps_f.hasOwnProperty(n_n[1])) {
-          apps_f[n_n[1]].push(n_n[0]);
-        } else {
-          apps_f[n_n[1]] = [];
-          apps_f[n_n[1]].push(n_n[0]);
-        }
+        apps_f[countryCode].push(appId);
       } else {
-        app_infos.push({ content: `ID格式错误:【${n}】` });
+        app_infos.push({ content: `应用 ${appId} 缺少国家代码` });
       }
-    } else {
-      app_infos.push({ content: `ID格式错误:【${n}】` });
     }
-  });
+  }
   if (Object.keys(apps_f).length > 0) {
     await post_data(apps_f);
   }
@@ -196,6 +186,29 @@ async function format_apps(x) {
 
 async function post_data(d) {
   try {
+    // Function to clear expired cache files
+    const clearExpiredCache = async () => {
+      const fm = FileManager.iCloud();
+      const cacheDirectory = fm.joinPath(fm.documentsDirectory(), "cache/App Price Monitor");
+      if (fm.fileExists(cacheDirectory)) {
+        const files = fm.listContents(cacheDirectory);
+        const now = new Date().getTime();
+
+        for (const file of files) {
+          const filePath = fm.joinPath(cacheDirectory, file);
+          if (!fm.isDirectory(filePath)) {
+            const modificationDate = fm.modificationDate(filePath).getTime();
+            if (now - modificationDate > CACHE_DURATION) {
+              console.log(`Deleting expired cache file: ${file}`);
+              fm.remove(filePath);
+            }
+          }
+        }
+      }
+    };
+
+    await clearExpiredCache(); // Call the cache clearing function
+
     let infos = {};
     const allRequests = [];
 
@@ -217,12 +230,11 @@ async function post_data(d) {
             (async () => {
               let responseBody;
               const now = new Date().getTime();
-              const threeHours = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
 
               // Check cache first
               if (fm.fileExists(cacheFilePath)) {
                 const modificationDate = fm.modificationDate(cacheFilePath).getTime();
-                if (now - modificationDate < threeHours) {
+                if (now - modificationDate < CACHE_DURATION) {
                   console.log(`Reading from cache: ${cacheFileName}`);
                   responseBody = fm.readString(cacheFilePath);
                 } else {
@@ -262,26 +274,26 @@ async function post_data(d) {
                       app_monitor_data = {};
                     }
 
-                    let app_name = app_monitor_data.n;
+                    let app_name = app_monitor_data.alias;
                     if (!app_name) {
                       app_name = x.trackName;
                     }
                     let app_price = x.formattedPrice;
 
                     infos[x.trackId] = {
-                      n: app_name,
-                      p: app_price,
+                      alias: app_name,
+                      originalPrice: app_price,
                     };
                     if (app_monitor.hasOwnProperty(x.trackId)) {
                       if (
                         JSON.stringify(app_monitor[x.trackId]) !==
                         JSON.stringify(infos[x.trackId])
                       ) {
-                        if (app_price !== app_monitor[x.trackId].p) {
+                        if (app_price !== app_monitor[x.trackId].originalPrice) {
                           is_sale = true;
                           app_infos.push({
                             name: `${app_name}`,
-                            price: `${app_price}(${app_monitor[x.trackId].p})`,
+                            price: `${app_price}(${app_monitor[x.trackId].originalPrice})`,
                             screenshotUrls: x.screenshotUrls,
                             is_sale: true,
                           });
