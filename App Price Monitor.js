@@ -1,6 +1,6 @@
 // Variables used by Scriptable.
 // These must be at the very top of the file. Do not edit.
-// icon-color: teal; icon-glyph: tag;
+// icon-color: deep-green; icon-glyph: tag;
 /*
  * Author: evilbutcher 修改自t.me/QuanXApp群友分享
  * Github: https://github.com/evilbutcher
@@ -19,31 +19,28 @@ const app_monitor = {
   554937499: {
     p: "$0.99",
   },
+  935216956: {
+    p: "$4.99",
+  },
+  6746273626: {
+    n: "Dory",
+    p: "¥28.00"
+  }
 };
 
 let apps = [
-  "1528199331|us", //崩溃大陆2
-  "1514329124|us", //铁锈战争
-  "554937499|us", //Earn to die
+  "1528199331", //崩溃大陆2
+  "1514329124", //铁锈战争
+  "935216956", //Papers, Please
+//   "554937499", //Earn to die
+  "6746273626|cn", //Dory
 ]; //app跟踪id
-let reg = "cn"; //默认区域：美国us 中国cn 香港hk
+let reg = "us"; //默认区域：美国us 中国cn 香港hk
 let app_infos = [];
-try {
-  const con = importModule("Config");
-  apps = con.apps();
-  reg = con.reg();
-  if (apps == [] || reg == "") {
-    throw new Error(err);
-  }
-} catch (err) {
-  if (apps == "" || reg == "") {
-    log("请检查脚本内填入的App监控信息是否完整");
-  }
-}
 
 !(async () => {
   await format_apps(apps);
-  log(app_infos);
+  
   let widget = await createWidget(app_infos);
   Script.setWidget(widget);
   Script.complete();
@@ -53,7 +50,7 @@ try {
 
 async function createWidget(app_infos) {
   const w = new ListWidget();
-  w.setPadding(0, 10, 0, 10);
+  w.setPadding(0, 5, 0, 5);
 
   const mainStack = w.addStack();
   mainStack.layoutHorizontally();
@@ -78,14 +75,16 @@ async function createWidget(app_infos) {
     selectedApp =
       appsWithScreenshots[Math.floor(Math.random() * appsWithScreenshots.length)];
     // Mark the selected app
-    selectedApp.name = `> ${selectedApp.name}`;
+    selectedApp.name = `[x]${selectedApp.name}`;
   }
   app_infos.forEach(app => {
     if (app !== selectedApp) {
+      app.name = `${app.name}`;
       app.content = `${app.content}`;
     }
   });
 
+  const maxStackHeight = 160;
   // If an app was selected, add its image to the left
   if (selectedApp) {
     const imageStackGroup = mainStack.addStack();
@@ -97,7 +96,7 @@ async function createWidget(app_infos) {
     imageStack.addSpacer();
 
     const maxImageWidth = 200;
-    const maxImageHeight = 160;
+    const maxImageHeight = maxStackHeight;
     imageStackGroup.size = new Size(maxImageWidth, maxImageHeight); // Set fixed size for the image container
 
     try {
@@ -128,7 +127,7 @@ async function createWidget(app_infos) {
 
   // Right stack for text content
   const textStack = mainStack.addStack();
-  textStack.size = new Size(120, 160);
+  textStack.size = new Size(120, maxStackHeight);
   textStack.layoutVertically();
   textStack.addSpacer()
   for (const element of app_infos) {
@@ -143,21 +142,23 @@ async function createWidget(app_infos) {
 
 function addTextToListWidget(app_info, listWidget) {
   const nameStack = listWidget.addStack();
-  nameStack.setPadding(1, 10, 1, 10);
+  nameStack.setPadding(1, 5, 1, 5);
   let name = nameStack.addText(app_info.name);
   const priceStack = listWidget.addStack();
-  priceStack.setPadding(1, 10, 1, 10);
+  priceStack.setPadding(1, 5, 1, 5);
   let price = priceStack.addText(app_info.price)
   
+  let priceFontSize = 9;
+  let nameFontSize = 10;
   if (app_info.is_sale) {
     price.textColor = Color.green();
-    price.font = Font.boldSystemFont(10);
-    name.font = Font.boldSystemFont(12);
+    name.textColor = Color.green();
+    price.font = Font.boldSystemFont(priceFontSize);
+    name.font = Font.boldSystemFont(nameFontSize);
   } else {
     price.textColor = Color.gray();
-    price.font = Font.systemFont(10);
-    name.font = Font.systemFont(12);
-    price.stri
+    price.font = Font.systemFont(priceFontSize);
+    name.font = Font.boldSystemFont(nameFontSize);
   }
 }
 
@@ -196,63 +197,116 @@ async function format_apps(x) {
 async function post_data(d) {
   try {
     let infos = {};
-    await Promise.all(
-      Object.keys(d).map(async (k) => {
-        let url = "https://itunes.apple.com/lookup?id=" + d[k] + "&country=" + k;
-        const req = new Request(url);
-        try {
-          const responseBody = await req.loadString();
-          let results = JSON.parse(responseBody).results;
-            if (Array.isArray(results) && results.length > 0) {
-              results.forEach((x) => {
-                let is_sale = false;
-                let app_monitor_data = app_monitor[x.trackId];
-                if (!app_monitor_data) {
-                  app_monitor_data = {};
-                }
+    const allRequests = [];
 
-                let app_name = app_monitor_data.n;
-                if (!app_name) {
-                  app_name = x.trackName;
-                }
-                let app_price = x.formattedPrice;
+    // Cache setup
+    const fm = FileManager.iCloud();
+    const cacheDirectory = fm.joinPath(fm.documentsDirectory(), "cache/App Price Monitor");
+    if (!fm.fileExists(cacheDirectory)) {
+      fm.createDirectory(cacheDirectory);
+    }
 
-                infos[x.trackId] = {
-                  n: app_name,
-                  p: app_price,
-                };
-                if (app_monitor.hasOwnProperty(x.trackId)) {
-                  if (
-                    JSON.stringify(app_monitor[x.trackId]) !==
-                    JSON.stringify(infos[x.trackId])
-                  ) {
-                    if (app_price !== app_monitor[x.trackId].p) {
-                      is_sale = true;
-                      app_infos.push({
-                        name: `${app_name}`,
-                        price: `${app_price}(${app_monitor[x.trackId].p})`,
-                        screenshotUrls: x.screenshotUrls,
-                        is_sale: true,
-                      });
-                    }
+    for (const countryCode in d) {
+      if (d.hasOwnProperty(countryCode)) {
+        const appIds = d[countryCode];
+        for (const appId of appIds) {
+          const cacheFileName = `${appId}_${countryCode}.json`;
+          const cacheFilePath = fm.joinPath(cacheDirectory, cacheFileName);
+
+          allRequests.push(
+            (async () => {
+              let responseBody;
+              const now = new Date().getTime();
+              const threeHours = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
+
+              // Check cache first
+              if (fm.fileExists(cacheFilePath)) {
+                const modificationDate = fm.modificationDate(cacheFilePath).getTime();
+                if (now - modificationDate < threeHours) {
+                  console.log(`Reading from cache: ${cacheFileName}`);
+                  responseBody = fm.readString(cacheFilePath);
+                } else {
+                  console.log(`Cache expired, fetching from network: ${appId} in ${countryCode}`);
+                  const url = `https://itunes.apple.com/lookup?id=${appId}&country=${countryCode}`;
+                  const req = new Request(url);
+                  try {
+                    responseBody = await req.loadString();
+                    // Write to cache
+                    fm.writeString(cacheFilePath, responseBody);
+                  } catch (e) {
+                    console.log(`Error fetching ${url}: ${e}`);
+                    return; // Skip processing if fetch fails
                   }
                 }
-                if (!is_sale) {
-                  app_infos.push({
-                    name: `${app_name}`,
-                    price: `${app_price}`,
-                    screenshotUrls: x.screenshotUrls,
-                    is_sale: false,
+              } else {
+                console.log(`Fetching from network (no cache): ${appId} in ${countryCode}`);
+                const url = `https://itunes.apple.com/lookup?id=${appId}&country=${countryCode}`;
+                const req = new Request(url);
+                try {
+                  responseBody = await req.loadString();
+                  // Write to cache
+                  fm.writeString(cacheFilePath, responseBody);
+                } catch (e) {
+                  console.log(`Error fetching ${url}: ${e}`);
+                  return; // Skip processing if fetch fails
+                }
+              }
+
+              try {
+                let results = JSON.parse(responseBody).results;
+                if (Array.isArray(results) && results.length > 0) {
+                  results.forEach((x) => {
+                    let is_sale = false;
+                    let app_monitor_data = app_monitor[x.trackId];
+                    if (!app_monitor_data) {
+                      app_monitor_data = {};
+                    }
+
+                    let app_name = app_monitor_data.n;
+                    if (!app_name) {
+                      app_name = x.trackName;
+                    }
+                    let app_price = x.formattedPrice;
+
+                    infos[x.trackId] = {
+                      n: app_name,
+                      p: app_price,
+                    };
+                    if (app_monitor.hasOwnProperty(x.trackId)) {
+                      if (
+                        JSON.stringify(app_monitor[x.trackId]) !==
+                        JSON.stringify(infos[x.trackId])
+                      ) {
+                        if (app_price !== app_monitor[x.trackId].p) {
+                          is_sale = true;
+                          app_infos.push({
+                            name: `${app_name}`,
+                            price: `${app_price}(${app_monitor[x.trackId].p})`,
+                            screenshotUrls: x.screenshotUrls,
+                            is_sale: true,
+                          });
+                        }
+                      }
+                    }
+                    if (!is_sale) {
+                      app_infos.push({
+                        name: `${app_name}`,
+                        price: `${app_price}`,
+                        screenshotUrls: x.screenshotUrls,
+                        is_sale: false,
+                      });
+                    }
                   });
                 }
-              });
-            }
-        } catch (e) {
-            console.log(e);
+              } catch (e) {
+                console.log(`Error parsing or processing data for ${appId} in ${countryCode}: ${e}`);
+              }
+            })()
+          );
         }
-            
-      })
-    );
+      }
+    }
+    await Promise.all(allRequests);
     return app_infos;
   } catch (e) {
     console.log(e);
