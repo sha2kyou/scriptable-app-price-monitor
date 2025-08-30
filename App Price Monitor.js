@@ -5,36 +5,18 @@
  * Author: evilbutcher 修改自t.me/QuanXApp群友分享
  * Github: https://github.com/evilbutcher
  */
-
 const CACHE_DURATION = 3 * 60 * 60 * 1000; // 3 hours in milliseconds
 
-const DEFAULT_COUNTRY_CODE = "cn";
+const DEFAULT_COUNTRY_CODE = "us";
 
 const app_monitor = {
   // originalPrice: 监控价格，当真实价格与该价格不相等时进行折扣展示
   // alias: 别名展示，可选
   // country: 区域代码，可选，默认为 "cn"
-  1528199331: {
-    country: "us",
-    originalPrice: "$9.99",
-    alias: "崩溃大陆2",
-  },
-  1514329124: {
-    country: "us",
-    originalPrice: "$2.99",
-    alias: "铁锈战争",
-  },
-  554937499: {
-    country: "us",
-    originalPrice: "$0.99",
-  },
-  935216956: {
-    country: "us",
-    originalPrice: "$4.99",
-  },
-  6746273626: {
-    alias: "Dory",
-    originalPrice: "¥28.00"
+  //一个强大且美观的macOS桌面效率神器
+  6751482006: {
+    country: "cn",
+    originalPrice: "¥38.00"
   }
 };
 let app_infos = [];
@@ -56,7 +38,6 @@ async function createWidget(app_infos) {
   const mainStack = w.addStack();
   mainStack.layoutHorizontally();
   
-
   //打折排到最前
   app_infos.sort((a, b) => {
     if (a.is_sale === b.is_sale) {
@@ -76,7 +57,7 @@ async function createWidget(app_infos) {
     selectedApp =
       appsWithScreenshots[Math.floor(Math.random() * appsWithScreenshots.length)];
     // Mark the selected app
-    selectedApp.name = `[${selectedApp.name}]`;
+    selectedApp.name = `→${selectedApp.name}`;
   }
   app_infos.forEach(app => {
     if (app !== selectedApp) {
@@ -96,7 +77,7 @@ async function createWidget(app_infos) {
     imageStack.layoutVertically();
     imageStack.addSpacer();
 
-    const maxImageWidth = 200;
+    const maxImageWidth = 220;
     const maxImageHeight = maxStackHeight;
     imageStackGroup.size = new Size(maxImageWidth, maxImageHeight); // Set fixed size for the image container
 
@@ -128,7 +109,7 @@ async function createWidget(app_infos) {
 
   // Right stack for text content
   const textStack = mainStack.addStack();
-  textStack.size = new Size(120, maxStackHeight);
+  textStack.size = new Size(100, maxStackHeight);
   textStack.layoutVertically();
   textStack.addSpacer()
   for (const element of app_infos) {
@@ -148,16 +129,14 @@ function addTextToListWidget(app_info, listWidget) {
   const priceStack = listWidget.addStack();
   priceStack.setPadding(1, 5, 1, 5);
   let price = priceStack.addText(app_info.price)
+  price.textColor = Color.gray();
   
   let priceFontSize = 9;
-  let nameFontSize = 10;
+  let nameFontSize = 11;
   if (app_info.is_sale) {
-    price.textColor = Color.green();
-    name.textColor = Color.green();
-    price.font = Font.boldSystemFont(priceFontSize);
+    price.font = Font.systemFont(priceFontSize);
     name.font = Font.boldSystemFont(nameFontSize);
   } else {
-    price.textColor = Color.gray();
     price.font = Font.systemFont(priceFontSize);
     name.font = Font.boldSystemFont(nameFontSize);
   }
@@ -207,18 +186,22 @@ async function post_data(d) {
       const fm = FileManager.iCloud();
       const cacheDirectory = fm.joinPath(fm.documentsDirectory(), "cache/App Price Monitor");
       if (fm.fileExists(cacheDirectory)) {
-        const files = fm.listContents(cacheDirectory);
-        const now = new Date().getTime();
+        try {
+          const files = fm.listContents(cacheDirectory);
+          const now = new Date().getTime();
 
-        for (const file of files) {
-          const filePath = fm.joinPath(cacheDirectory, file);
-          if (!fm.isDirectory(filePath)) {
-            const modificationDate = fm.modificationDate(filePath).getTime();
-            if (now - modificationDate > CACHE_DURATION) {
-              console.log(`Deleting expired cache file: ${file}`);
-              fm.remove(filePath);
+          for (const file of files) {
+            const filePath = fm.joinPath(cacheDirectory, file);
+            if (!fm.isDirectory(filePath)) {
+              const modificationDate = fm.modificationDate(filePath).getTime();
+              if (now - modificationDate > CACHE_DURATION) {
+                console.log(`Deleting expired cache file: ${file}`);
+                fm.remove(filePath);
+              }
             }
           }
+        } catch (e) {
+          console.log(`Error clearing cache: ${e}`);
         }
       }
     };
@@ -259,7 +242,7 @@ async function post_data(d) {
                   const req = new Request(url);
                   try {
                     responseBody = await req.loadString();
-                    // Write to cache
+                  // Write to cache
                     fm.writeString(cacheFilePath, responseBody);
                   } catch (e) {
                     console.log(`Error fetching ${url}: ${e}`);
