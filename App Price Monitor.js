@@ -48,6 +48,9 @@ async function createWidget(app_infos) {
     return b.is_sale - a.is_sale;
   });
 
+  // 只显示前4条数据
+  app_infos = app_infos.slice(0, 4);
+
   // Find apps with screenshots and select one randomly
   const appsWithScreenshots = app_infos.filter(
     (app) => app.screenshotUrls && app.screenshotUrls.length > 0
