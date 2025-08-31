@@ -6,7 +6,7 @@ Github: https://github.com/evilbutcher
 ## 使用
 请先下载安装 [Scriptable](https://scriptable.app/)，然后将本脚本手动导入。
 
-＊*红色代表涨价，绿色代表降价。**
+＊*红色代表涨价，绿色代表降价。*
 
 ## 预览图
 
